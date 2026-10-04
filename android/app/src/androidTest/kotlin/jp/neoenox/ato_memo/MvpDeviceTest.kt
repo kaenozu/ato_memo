@@ -65,6 +65,14 @@ class MvpDeviceTest {
             assertTrue((memo["candidates"] as List<*>).isNotEmpty())
         }
     }
+    @Test fun ocrInitializationFailureStillKeepsTheImageAndReservation() {
+        val id = ImageImporter(context) { throw IllegalStateException("OCR initialization unavailable") }.import(image())
+        MemoStore(context).use { store ->
+            val entry = store.items().single()
+            assertEquals(id, entry["id"]); assertTrue(File(entry["path"] as String).length() > 0)
+            assertTrue((entry["ocrError"] as String).isNotBlank()); assertNotNull(store.nextDue())
+        }
+    }
     @Test fun autoOnlyImportsNewScreenshotsAndDoesNotReimportDeletedCopy() {
         image(); Settings(context).update(mapOf("auto" to true))
         image(); image("camera_${System.nanoTime()}.png", "Pictures/Camera")

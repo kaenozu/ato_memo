@@ -11,6 +11,7 @@ import android.provider.OpenableColumns
 import com.google.android.gms.tasks.Tasks
 import com.google.mlkit.vision.common.InputImage
 import com.google.mlkit.vision.text.TextRecognition
+import com.google.mlkit.vision.text.TextRecognizer
 import com.google.mlkit.vision.text.japanese.JapaneseTextRecognizerOptions
 import java.io.File
 import java.time.LocalDateTime
@@ -18,15 +19,22 @@ import java.time.ZoneId
 import java.util.UUID
 import java.util.concurrent.TimeUnit
 
-class ImageImporter(private val context: Context) {
+class ImageImporter(private val context: Context, private val recognizerFactory: () -> TextRecognizer = {
+    TextRecognition.getClient(JapaneseTextRecognizerOptions.Builder().build())
+}) {
     private val settings = Settings(context)
     fun import(uri: Uri, origin: String = "", sourceKey: String = uri.toString()): Long {
         MemoStore(context).use { store ->
             val existing = store.idForSource(sourceKey)
-            if (existing > 0) return existing
+            if (existing > 0) {
+                val entry = store.items().first { it["id"] == existing }
+                if (File(entry["path"] as String).isFile) return existing
+                store.delete(existing)
+            }
             val name = try { context.contentResolver.query(uri, arrayOf(OpenableColumns.DISPLAY_NAME), null, null, null)?.use { if (it.moveToFirst()) it.getString(0) else null } } catch (_: Exception) { null }
             val folder = File(context.filesDir, "images").apply { mkdirs() }
             val file = File(folder, "${UUID.randomUUID()}.image")
+            var savedId = -1L
             try {
                 context.contentResolver.openInputStream(uri)?.use { input -> file.outputStream().use { output ->
                     val buffer = ByteArray(65536); var total = 0L
@@ -37,14 +45,24 @@ class ImageImporter(private val context: Context) {
                 require(bounds.outWidth > 0 && bounds.outHeight > 0) { "対応していない画像です" }
                 val url = Regex("https?://[^\\s<>]+", RegexOption.IGNORE_CASE).find(origin)?.value ?: ""
                 val id = store.add(sourceKey, file.path, name ?: "スクショ", url, settings.defaultDue())
+                require(id > 0) { "画像を保存できませんでした" }
+                savedId = id
                 recognize(store, id, file)
                 return id
-            } catch (e: Exception) { file.delete(); throw e }
+            } catch (e: Exception) {
+                if (savedId > 0) {
+                    store.ocr(savedId, "", emptyList(), "文字を読み取れませんでした。通知日時は手動で指定できます。")
+                    return savedId
+                }
+                file.delete(); throw e
+            }
         }
     }
     private fun recognize(store: MemoStore, id: Long, file: File) {
-        val recognizer = TextRecognition.getClient(JapaneseTextRecognizerOptions.Builder().build())
+        var recognizer: TextRecognizer? = null
         try {
+            val client = recognizerFactory()
+            recognizer = client
             val options = BitmapFactory.Options().apply { inJustDecodeBounds = true }
             BitmapFactory.decodeFile(file.path, options)
             var sample = 1
@@ -54,14 +72,14 @@ class ImageImporter(private val context: Context) {
             val rotation = try { when (ExifInterface(file.path).getAttributeInt(ExifInterface.TAG_ORIENTATION, ExifInterface.ORIENTATION_NORMAL)) {
                 ExifInterface.ORIENTATION_ROTATE_90 -> 90; ExifInterface.ORIENTATION_ROTATE_180 -> 180; ExifInterface.ORIENTATION_ROTATE_270 -> 270; else -> 0
             } } catch (_: Exception) { 0 }
-            val task = recognizer.process(InputImage.fromBitmap(bitmap, rotation))
+            val task = client.process(InputImage.fromBitmap(bitmap, rotation))
             // Keep the bitmap alive until ML Kit finishes, including a timeout path.
             task.addOnCompleteListener { bitmap.recycle() }
             val text = Tasks.await(task, 30, TimeUnit.SECONDS).text
             val dates = ReminderTimes.candidates(text, LocalDateTime.now()).map { it.atZone(ZoneId.systemDefault()).toInstant().toEpochMilli() }
             store.ocr(id, text, dates)
         } catch (_: Exception) { store.ocr(id, "", emptyList(), "文字を読み取れませんでした。通知日時は手動で指定できます。") }
-        finally { recognizer.close() }
+        finally { runCatching { recognizer?.close() } }
     }
     fun retryOcr(id: Long) { MemoStore(context).use { store -> store.items().firstOrNull { it["id"] == id }?.let { recognize(store, id, File(it["path"] as String)) } } }
     fun scan(past: Boolean = false): Int {
