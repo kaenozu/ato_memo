@@ -17,12 +17,13 @@ object MediaJobs {
     fun schedule(context: Context) {
         val scheduler = context.getSystemService(JobScheduler::class.java)
         val settings = Settings(context)
-        if (!settings.auto || !settings.mediaAllowed()) {
-            scheduler.cancel(CHANGES); scheduler.cancel(PERIODIC); return
-        }
         val service = ComponentName(context, MediaImportJob::class.java)
-        if (scheduler.getPendingJob(CHANGES) == null) armChanges(context)
-        if (scheduler.getPendingJob(PERIODIC) == null) scheduler.schedule(JobInfo.Builder(PERIODIC, service).setPeriodic(15 * 60 * 1000L).setPersisted(true).build())
+        val active = settings.auto && settings.mediaAllowed()
+        if (!active) scheduler.cancel(CHANGES)
+        else if (scheduler.getPendingJob(CHANGES) == null) armChanges(context)
+        // Maintenance also runs with auto-import OFF so completed copies can expire.
+        val interval = if (active) 15 * 60 * 1000L else 24 * 60 * 60 * 1000L
+        if (scheduler.getPendingJob(PERIODIC)?.intervalMillis != interval) scheduler.schedule(JobInfo.Builder(PERIODIC, service).setPeriodic(interval).setPersisted(true).build())
     }
     fun armChanges(context: Context) {
         val settings = Settings(context)

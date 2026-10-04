@@ -6,6 +6,7 @@ import android.app.NotificationManager
 import android.content.Context
 import android.content.pm.PackageManager
 import android.os.Build
+import android.provider.MediaStore
 import java.time.LocalDateTime
 import java.time.ZoneId
 
@@ -14,6 +15,7 @@ class Settings(private val context: Context) {
     val auto get() = prefs.getBoolean("auto", false)
     val allImages get() = prefs.getBoolean("allImages", false)
     val enabledAt get() = prefs.getLong("enabledAt", Long.MAX_VALUE)
+    val baselineId get() = prefs.getLong("baselineId", Long.MAX_VALUE)
     val notify get() = prefs.getBoolean("notify", true)
     val hour get() = prefs.getInt("hour", 20)
     val minute get() = prefs.getInt("minute", 0)
@@ -35,7 +37,11 @@ class Settings(private val context: Context) {
         for ((key, range) in mapOf("hour" to 0..23, "minute" to 0..59, "delayDays" to 0..1, "weekday" to 1..7)) {
             (values[key] as? Number)?.toInt()?.let { require(it in range); editor.putInt(key, it) }
         }
-        if (values["auto"] == true && !auto) { require(mediaAllowed()) { "全画像へのアクセスを許可してください" }; editor.putLong("enabledAt", System.currentTimeMillis()) }
+        if (values["auto"] == true && !auto) {
+            require(mediaAllowed()) { "全画像へのアクセスを許可してください" }
+            val maxId = context.contentResolver.query(MediaStore.Images.Media.EXTERNAL_CONTENT_URI, arrayOf(MediaStore.Images.Media._ID), null, null, "${MediaStore.Images.Media._ID} DESC")?.use { if (it.moveToFirst()) it.getLong(0) else 0L } ?: 0L
+            editor.putLong("enabledAt", System.currentTimeMillis()); editor.putLong("baselineId", maxId)
+        }
         editor.commit()
     }
 }

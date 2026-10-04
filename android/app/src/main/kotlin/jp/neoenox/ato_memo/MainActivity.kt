@@ -47,7 +47,15 @@ class MainActivity : FlutterActivity() {
                 "scan" -> work(result) { ImageImporter(this).scan(call.arguments == true) }
                 "requestMedia" -> {
                     if (permissionResult != null) result.error("busy", "権限の確認中です", null)
-                    else { permissionResult = result; requestPermissions(arrayOf(if (Build.VERSION.SDK_INT >= 33) Manifest.permission.READ_MEDIA_IMAGES else Manifest.permission.READ_EXTERNAL_STORAGE), 41) }
+                    else {
+                        permissionResult = result
+                        val permissions = when {
+                            Build.VERSION.SDK_INT >= 34 -> arrayOf(Manifest.permission.READ_MEDIA_IMAGES, Manifest.permission.READ_MEDIA_VISUAL_USER_SELECTED)
+                            Build.VERSION.SDK_INT >= 33 -> arrayOf(Manifest.permission.READ_MEDIA_IMAGES)
+                            else -> arrayOf(Manifest.permission.READ_EXTERNAL_STORAGE)
+                        }
+                        requestPermissions(permissions, 41)
+                    }
                 }
                 "requestNotifications" -> {
                     if (Build.VERSION.SDK_INT >= 33) {

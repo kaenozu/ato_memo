@@ -1,17 +1,39 @@
-# ato_memo
+# あとメモ
 
-A new Flutter project.
+スクショした情報を、忘れる前にもう一度。Android向けMVPです。
 
-## Getting Started
+## はじめ方
+Android 8.0以上にAPKをインストールします。通常のスマートフォンは`ato-memo-arm64.apk`を使ってください。これはMVPの試用版で、開発用の署名を使用しています。
 
-This project is a starting point for a Flutter application.
+1. スクショの共有先で「あとメモ」を選ぶか、アプリの「画像を追加」から選択します。
+2. 「今日・明日・週末・日時指定」で見返す時間を決めます。画像の文字から見つけた日付候補も選べます。
+3. 通知をタップすると画像を開けます。「見返した・完了」か「明日また通知」を選びます。
 
-A few resources to get you started if this is your first Flutter project:
+自動にしたい場合は「設定 → 新しい画像を自動で取り込む」をONにして、写真への全アクセスを許可してください。対象は「スクショだけ」と「すべての画像」から選べます。ONにした後の画像が対象で、過去画像には別の取り込み操作があります。写真の一部だけを許可した場合は手動追加を使えます。
 
-- [Learn Flutter](https://docs.flutter.dev/get-started/learn-flutter)
-- [Write your first Flutter app](https://docs.flutter.dev/get-started/codelab)
-- [Flutter learning resources](https://docs.flutter.dev/reference/learning-resources)
+## 通知の設定
+初期値は翌日20時のまとめ通知です。時刻、毎日／週1回、曜日、当日／翌日以降、通知ON/OFFを変更できます。画像ごとの予約も変更可能です。設定変更は未通知の自動予約に反映し、個別に指定した日時は維持します。
 
-For help getting started with Flutter development, view the
-[online documentation](https://docs.flutter.dev/), which offers tutorials,
-samples, guidance on mobile development, and a full API reference.
+通知の許可が必要です。正確な時刻で受け取りたい場合は設定画面の「正確な時刻の通知」から端末設定を変更できます。端末の省電力状態などにより、自動取り込みや通知が遅れることがあります。端末設定でアプリを強制停止した場合は、一度アプリを開いて再開してください。
+
+## 画像の扱い
+- 画像をアプリ内にコピーするため、元画像を消しても見返せます。
+- 元画像は変更・削除しません。
+- 日本語OCRはバンドルしたML Kitモデルで端末内処理します。配布用release APKにはインターネット権限を付けません。
+- 画像や読み取った本文を通知に表示しません。アカウント・外部AI・広告はありません。
+- 完了から30日経過したコピーは、次の端末内メンテナンス処理で削除します。アプリのアンインストールで画像・予約・設定も消えます。クラウドバックアップは無効です。
+- 画像は1枚50MBまで。OCRは縮小画像を読み取るため、小さい文字や複雑な日付は拾えないことがあります。
+
+## 構成と開発
+Flutterで日本語画面を作り、Kotlinで共有、SQLite、MediaStoreの自動取り込み、ML Kit、AlarmManager、通知を実装しています。外部サーバーやAPIキーは必要ありません。
+
+```powershell
+flutter pub get
+flutter analyze
+flutter test
+flutter build apk --release --split-per-abi
+```
+
+Android SDK・Flutter・JDKの開発環境が必要です。配布前には独自の署名設定へ変更してください。
+
+仕様は[docs/MVP.md](docs/MVP.md)、実際の検証範囲は[docs/VERIFICATION.md](docs/VERIFICATION.md)を参照してください。

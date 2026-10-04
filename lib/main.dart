@@ -1,122 +1,115 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
+import 'controller.dart';
+import 'native_bridge.dart';
+import 'home_page.dart';
+import 'detail_page.dart';
 
-void main() {
-  runApp(const MyApp());
+void main() => runApp(const AtoMemoApp());
+
+class AtoMemoApp extends StatefulWidget {
+  const AtoMemoApp({super.key, this.controller});
+  final MemoController? controller;
+  @override
+  State<AtoMemoApp> createState() => _AtoMemoAppState();
 }
 
-class MyApp extends StatelessWidget {
-  const MyApp({super.key});
-
-  // This widget is the root of your application.
+class _AtoMemoAppState extends State<AtoMemoApp> with WidgetsBindingObserver {
+  late final MemoController controller;
+  final navigator = GlobalKey<NavigatorState>();
+  int? _openingId;
   @override
-  Widget build(BuildContext context) {
-    return MaterialApp(
-      title: 'Flutter Demo',
-      theme: ThemeData(
-        // This is the theme of your application.
-        //
-        // TRY THIS: Try running your application with "flutter run". You'll see
-        // the application has a purple toolbar. Then, without quitting the app,
-        // try changing the seedColor in the colorScheme below to Colors.green
-        // and then invoke "hot reload" (save your changes or press the "hot
-        // reload" button in a Flutter-supported IDE, or press "r" if you used
-        // the command line to start the app).
-        //
-        // Notice that the counter didn't reset back to zero; the application
-        // state is not lost during the reload. To reset the state, use hot
-        // restart instead.
-        //
-        // This works for code too, not just values: Most code changes can be
-        // tested with just a hot reload.
-        colorScheme: .fromSeed(seedColor: Colors.deepPurple),
-      ),
-      home: const MyHomePage(title: 'Flutter Demo Home Page'),
-    );
+  void initState() {
+    super.initState();
+    controller = widget.controller ?? MemoController(NativeBridge());
+    WidgetsBinding.instance.addObserver(this);
+    controller.addListener(_changed);
+    NativeBridge.channel.setMethodCallHandler((call) async {
+      if (call.method == 'changed') await controller.refresh();
+    });
+    controller.refresh();
   }
-}
 
-class MyHomePage extends StatefulWidget {
-  const MyHomePage({super.key, required this.title});
-
-  // This widget is the home page of your application. It is stateful, meaning
-  // that it has a State object (defined below) that contains fields that affect
-  // how it looks.
-
-  // This class is the configuration for the state. It holds the values (in this
-  // case the title) provided by the parent (in this case the App widget) and
-  // used by the build method of the State. Fields in a Widget subclass are
-  // always marked "final".
-
-  final String title;
-
-  @override
-  State<MyHomePage> createState() => _MyHomePageState();
-}
-
-class _MyHomePageState extends State<MyHomePage> {
-  int _counter = 0;
-
-  void _incrementCounter() {
-    setState(() {
-      // This call to setState tells the Flutter framework that something has
-      // changed in this State, which causes it to rerun the build method below
-      // so that the display can reflect the updated values. If we changed
-      // _counter without calling setState(), then the build method would not be
-      // called again, and so nothing would appear to happen.
-      _counter++;
+  void _changed() {
+    if (controller.openHome) {
+      controller.openHome = false;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) navigator.currentState?.popUntil((route) => route.isFirst);
+      });
+    }
+    final error = controller.error;
+    if (error != null && error.isNotEmpty) {
+      controller.error = null;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted && navigator.currentContext != null) {
+          ScaffoldMessenger.of(
+            navigator.currentContext!,
+          ).showSnackBar(SnackBar(content: Text(error)));
+        }
+      });
+    }
+    final id = controller.openId;
+    if (id == null || _openingId != null) return;
+    controller.openId = null;
+    final schedule = controller.scheduleId == id;
+    controller.scheduleId = null;
+    _openingId = id;
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      if (mounted && navigator.currentState != null) {
+        navigator.currentState!.popUntil((route) => route.isFirst);
+        await navigator.currentState!.push(
+          MaterialPageRoute<void>(
+            builder: (_) => DetailPage(
+              controller: controller,
+              id: id,
+              openSchedule: schedule,
+            ),
+          ),
+        );
+      }
+      _openingId = null;
+      if (mounted) _changed();
     });
   }
 
   @override
-  Widget build(BuildContext context) {
-    // This method is rerun every time setState is called, for instance as done
-    // by the _incrementCounter method above.
-    //
-    // The Flutter framework has been optimized to make rerunning build methods
-    // fast, so that you can just rebuild anything that needs updating rather
-    // than having to individually change instances of widgets.
-    return Scaffold(
-      appBar: AppBar(
-        // TRY THIS: Try changing the color here to a specific color (to
-        // Colors.amber, perhaps?) and trigger a hot reload to see the AppBar
-        // change color while the other colors stay the same.
-        backgroundColor: Theme.of(context).colorScheme.inversePrimary,
-        // Here we take the value from the MyHomePage object that was created by
-        // the App.build method, and use it to set our appbar title.
-        title: Text(widget.title),
-      ),
-      body: Center(
-        // Center is a layout widget. It takes a single child and positions it
-        // in the middle of the parent.
-        child: Column(
-          // Column is also a layout widget. It takes a list of children and
-          // arranges them vertically. By default, it sizes itself to fit its
-          // children horizontally, and tries to be as tall as its parent.
-          //
-          // Column has various properties to control how it sizes itself and
-          // how it positions its children. Here we use mainAxisAlignment to
-          // center the children vertically; the main axis here is the vertical
-          // axis because Columns are vertical (the cross axis would be
-          // horizontal).
-          //
-          // TRY THIS: Invoke "debug painting" (choose the "Toggle Debug Paint"
-          // action in the IDE, or press "p" in the console), to see the
-          // wireframe for each widget.
-          mainAxisAlignment: .center,
-          children: [
-            const Text('You have pushed the button this many times:'),
-            Text(
-              '$_counter',
-              style: Theme.of(context).textTheme.headlineMedium,
-            ),
-          ],
-        ),
-      ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: _incrementCounter,
-        tooltip: 'Increment',
-        child: const Icon(Icons.add),
-      ),
-    );
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) controller.refresh();
   }
+
+  @override
+  void dispose() {
+    controller.removeListener(_changed);
+    WidgetsBinding.instance.removeObserver(this);
+    NativeBridge.channel.setMethodCallHandler(null);
+    if (widget.controller == null) controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) => MaterialApp(
+    navigatorKey: navigator,
+    debugShowCheckedModeBanner: false,
+    title: 'あとメモ',
+    locale: const Locale('ja'),
+    supportedLocales: const [Locale('ja')],
+    localizationsDelegates: GlobalMaterialLocalizations.delegates,
+    theme: ThemeData(
+      useMaterial3: true,
+      colorScheme: ColorScheme.fromSeed(
+        seedColor: const Color(0xff236a5b),
+        surface: const Color(0xfffaf9f5),
+      ),
+      scaffoldBackgroundColor: const Color(0xfffaf9f5),
+      appBarTheme: const AppBarTheme(
+        backgroundColor: Color(0xfffaf9f5),
+        centerTitle: false,
+      ),
+      cardTheme: const CardThemeData(elevation: 0, margin: EdgeInsets.zero),
+      inputDecorationTheme: const InputDecorationTheme(
+        border: OutlineInputBorder(),
+      ),
+    ),
+    home: HomePage(controller: controller),
+  );
 }

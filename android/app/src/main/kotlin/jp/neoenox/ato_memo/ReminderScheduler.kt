@@ -33,7 +33,7 @@ class ReminderScheduler(private val context: Context) {
             if (ids.isEmpty()) { schedule(); return }
             val intent = Intent(context, MainActivity::class.java).apply {
                 flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
-                putExtra("openId", if (ids.size == 1) ids[0] else -1L)
+                putExtra("openId", if (ids.size == 1) ids[0] else -2L)
             }
             val open = PendingIntent.getActivity(context, 2, intent, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
             manager.notify(1, Notification.Builder(context, "reminders")
