@@ -55,7 +55,8 @@ class MvpDeviceTest {
         return uri
     }
     @Test fun copySurvivesSourceDeletionAndJapaneseOcrFindsDateOffline() {
-        val uri = image(); val id = ImageImporter(context).import(uri, "元情報 https://example.com/event")
+        val uri = image(); val id = ImageImporter(context).import(uri)
+        assertEquals(id, ImageImporter(context).import(uri, "元情報 https://example.com/event"))
         context.contentResolver.delete(uri, null, null); sources.remove(uri)
         MemoStore(context).use { store ->
             val memo = store.items().single(); assertEquals(id, memo["id"])

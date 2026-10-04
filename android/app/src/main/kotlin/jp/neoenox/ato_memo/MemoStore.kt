@@ -16,6 +16,7 @@ class MemoStore(context: Context) : SQLiteOpenHelper(context, "memos.db", null, 
     override fun onUpgrade(db: SQLiteDatabase, oldVersion: Int, newVersion: Int) { error("Unsupported database migration") }
     fun seen(source: String): Boolean = readableDatabase.rawQuery("SELECT 1 FROM seen WHERE source=?", arrayOf(source)).use { it.moveToFirst() }
     fun idForSource(source: String): Long = readableDatabase.rawQuery("SELECT id FROM memos WHERE source=?", arrayOf(source)).use { if (it.moveToFirst()) it.getLong(0) else -1 }
+    fun updateUrl(id: Long, url: String) { writableDatabase.update("memos", ContentValues().apply { put("url", url) }, "id=?", arrayOf(id.toString())) }
     fun remember(source: String) { writableDatabase.insertWithOnConflict("seen", null, ContentValues().apply { put("source", source) }, SQLiteDatabase.CONFLICT_IGNORE) }
     fun add(source: String, path: String, title: String, url: String, due: Long): Long {
         val value = ContentValues().apply {

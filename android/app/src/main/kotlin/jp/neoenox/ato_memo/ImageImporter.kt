@@ -28,7 +28,10 @@ class ImageImporter(private val context: Context, private val recognizerFactory:
             val existing = store.idForSource(sourceKey)
             if (existing > 0) {
                 val entry = store.items().first { it["id"] == existing }
-                if (File(entry["path"] as String).isFile) return existing
+                if (File(entry["path"] as String).isFile) {
+                    Regex("https?://[^\\s<>]+", RegexOption.IGNORE_CASE).find(origin)?.value?.let { store.updateUrl(existing, it) }
+                    return existing
+                }
                 store.delete(existing)
             }
             val name = try { context.contentResolver.query(uri, arrayOf(OpenableColumns.DISPLAY_NAME), null, null, null)?.use { if (it.moveToFirst()) it.getString(0) else null } } catch (_: Exception) { null }
