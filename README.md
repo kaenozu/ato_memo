@@ -3,7 +3,7 @@
 スクショした情報を、忘れる前にもう一度。Android向けMVPです。
 
 ## はじめ方
-Android 8.0以上にAPKをインストールします。通常のスマートフォンは`ato-memo-arm64.apk`を使ってください。これはMVPの試用版で、開発用の署名を使用しています。
+Android 8.0以上に配布用APKをインストールします。通常のスマートフォンはarm64版を使ってください。現在はMVPの試用版です。0.1.1+2は正式署名でのビルドと動作を検証していますが、GitHub ReleasesでのAPK配布やGoogle Play公開はまだ行っていません。APKの作成・署名・更新手順は[配布手順](docs/RELEASE.md)を参照してください。
 
 1. スクショの共有先で「あとメモ」を選ぶか、アプリの「画像を追加」から選択します。
 2. 「今日・明日・週末・日時指定」で見返す時間を決めます。画像の文字から見つけた日付候補も選べます。
@@ -31,9 +31,23 @@ Flutterで日本語画面を作り、Kotlinで共有、SQLite、MediaStoreの自
 flutter pub get
 flutter analyze
 flutter test
-flutter build apk --release --split-per-abi
+flutter build apk --debug
+cd android
+.\gradlew.bat :app:testDebugUnitTest
+cd ..
 ```
 
-Android SDK・Flutter・JDKの開発環境が必要です。配布前には独自の署名設定へ変更してください。
+Flutter 3.44.0 / Dart 3.12.0、JDK 17を検証基準としています。Android SDK・Flutter・JDKの開発環境が必要です。
+
+PRとmainへのpushでは[GitHub Actions](https://github.com/neoenox/ato_memo/actions/workflows/ci.yml)がFlutter解析・テスト、Android単体テスト、release APKビルドを実行します。CIでは署名鍵を使用せず、開発用署名でビルドの成否を確認します。実機の通知・省電力動作は別途確認が必要です。
+
+配布用ビルドは署名設定を用意してから実行します。
+
+```powershell
+flutter build apk --release --split-per-abi
+flutter build appbundle --release
+```
+
+署名設定がない場合は開発用署名へフォールバックするため、配布前に[配布手順](docs/RELEASE.md)の証明書確認を行ってください。
 
 仕様は[docs/MVP.md](docs/MVP.md)、実際の検証範囲は[docs/VERIFICATION.md](docs/VERIFICATION.md)を参照してください。
