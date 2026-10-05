@@ -35,3 +35,10 @@ adb shell am instrument -w -e class jp.neoenox.ato_memo.MvpDeviceTest jp.neoenox
 
 ## 適用範囲
 エミュレーター上のMVP検証。実機メーカー固有の省電力動作、複数Androidバージョン、Google Playへの公開はこの検証に含まれない。日付候補は単純なパターン抽出であり、意味理解や締切の確定はしない。
+
+## 2026-10-05: 0.1.1+2 自動取り込みの修正
+- 修正前: 既存スクショの自動取り込みテストが `Existing screenshot must import without manual registration` で失敗。
+- 修正後: Android API35 の12テストが成功。既存・新規スクショ、旧版のON状態からの全画像取り込み、ホームのON操作から保存と通知予約、重複・削除後の再取り込み防止を確認。
+- Flutter 10テスト、Kotlin 6テスト、flutter analyze が成功。
+- 過去画像を除外していた開始日時/MediaStore ID条件を撤廃。ONと対象変更時に取り込みを開始。スクショだけ/全画像の設定は維持。
+- 実端末の省電力状態によるバックグラウンド遅延は別途実端末での確認が必要。

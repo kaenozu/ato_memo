@@ -16,7 +16,7 @@ class SettingsPage extends StatelessWidget {
         builder: (context) => AlertDialog(
           title: const Text('画像を自動で取り込む'),
           content: const Text(
-            '新しいスクショを見つけるため、写真への「すべて許可」が必要です。画像は端末内で処理し、外部に送信しません。\n\nONにした後の画像が対象です。',
+            '端末にある画像と、これから保存する画像を自動で取り込みます。写真への「すべて許可」が必要です。画像は端末内で処理し、外部に送信しません。',
           ),
           actions: [
             TextButton(
@@ -55,11 +55,23 @@ class SettingsPage extends StatelessWidget {
           children: [
             const _Heading('自動取り込み'),
             SwitchListTile(
-              title: const Text('新しい画像を自動で取り込む'),
-              subtitle: const Text('アプリを閉じていても取り込みます'),
+              title: const Text('画像を自動で取り込む'),
+              subtitle: Text(
+                '既存画像も新しい画像も対象・${s['allImages'] == true ? 'すべての画像' : 'スクショだけ'}',
+              ),
               value: s['auto'] == true,
               onChanged: c.busy ? null : (value) => enableAuto(context, value),
             ),
+            if (c.busy)
+              const ListTile(
+                leading: SizedBox(
+                  width: 24,
+                  height: 24,
+                  child: CircularProgressIndicator(),
+                ),
+                title: Text('処理しています'),
+                subtitle: Text('取り込みは枚数によって時間がかかります'),
+              ),
             ListTile(
               title: const Text('取り込む画像'),
               subtitle: Text(

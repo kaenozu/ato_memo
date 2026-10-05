@@ -104,7 +104,9 @@ class _HomePageState extends State<HomePage> {
                                     c.settings['notify'] == false
                                         ? '設定から再開できます'
                                         : next == null
-                                        ? '画像を追加してはじめよう'
+                                        ? c.settings['auto'] == true
+                                              ? '対象の画像を自動で探します'
+                                              : '自動取り込みではじめよう'
                                         : dateLabel(next),
                                     style: Theme.of(context)
                                         .textTheme
@@ -118,6 +120,26 @@ class _HomePageState extends State<HomePage> {
                                 ],
                               ),
                             ),
+                            if (c.settings['auto'] != true)
+                              Padding(
+                                padding: const EdgeInsets.only(top: 12),
+                                child: ListTile(
+                                  contentPadding: EdgeInsets.zero,
+                                  leading: const Icon(Icons.auto_awesome),
+                                  title: const Text('手動登録なしで見返す'),
+                                  subtitle: const Text(
+                                    '既存のスクショも、これから撮るスクショも自動で保存・通知',
+                                  ),
+                                  trailing: FilledButton(
+                                    onPressed: c.busy
+                                        ? null
+                                        : () => SettingsPage(
+                                            controller: c,
+                                          ).enableAuto(context, true),
+                                    child: const Text('自動取り込みをON'),
+                                  ),
+                                ),
+                              ),
                             if (c.settings['notify'] != false &&
                                 c.settings['notificationsAllowed'] == false)
                               Padding(
@@ -190,7 +212,9 @@ class _HomePageState extends State<HomePage> {
                               const SizedBox(height: 12),
                               Text(
                                 tab == 0
-                                    ? '画像の共有先で「あとメモ」を選ぶか、\n下のボタンから画像を追加してください。\n設定で自動取り込みも使えます。'
+                                    ? c.settings['auto'] == true
+                                          ? '対象画像を自動で取り込み、設定した時刻に通知します。\n写真やダウンロード画像も対象にするには、\n設定の「取り込む画像」を「すべての画像」に変更してください。'
+                                          : '自動取り込みをONにすると、端末のスクショを\n手動登録なしで取り込み、設定した時刻に通知します。\n個別の画像は共有や下のボタンから追加できます。'
                                     : '画像は開くだけでは完了になりません。',
                                 textAlign: TextAlign.center,
                               ),

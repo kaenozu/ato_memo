@@ -73,6 +73,17 @@ void main() {
     expect(calls.where((call) => call.method == 'requestMedia'), hasLength(1));
     expect(tester.takeException(), isNull);
   });
+  testWidgets('home enables automatic import without manual registration', (
+    tester,
+  ) async {
+    await tester.pumpWidget(const AtoMemoApp());
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('自動取り込みをON'));
+    await tester.pumpAndSettle();
+    expect(settings['auto'], true);
+    expect(calls.where((call) => call.method == 'pickImages'), isEmpty);
+    expect(find.text('自動取り込みをON'), findsNothing);
+  });
   testWidgets('small phone and large text keep empty screen usable', (
     tester,
   ) async {

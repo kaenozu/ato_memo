@@ -35,7 +35,9 @@ class MainActivity : FlutterActivity() {
                     val values = call.arguments as Map<*, *>
                     Settings(this).update(values)
                     if (listOf("hour", "minute", "delayDays", "weekly", "weekday").any { values.containsKey(it) && values[it] != old[it] }) MemoStore(this).use { it.rescheduleDefaults(Settings(this).defaultDue()) }
-                    MediaJobs.schedule(this); ReminderScheduler(this).schedule(); null
+                    MediaJobs.schedule(this)
+                    if (Settings(this).auto && (values["auto"] == true || values.containsKey("allImages"))) ImageImporter(this).scan()
+                    ReminderScheduler(this).schedule(); null
                 }
                 "schedule" -> work(result) {
                     MemoStore(this).use { it.schedule((call.argument<Number>("id")!!).toLong(), (call.argument<Number>("due")!!).toLong()) }

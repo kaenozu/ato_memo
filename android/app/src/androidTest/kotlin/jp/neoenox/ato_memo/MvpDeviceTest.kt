@@ -74,11 +74,20 @@ class MvpDeviceTest {
             assertTrue((entry["ocrError"] as String).isNotBlank()); assertNotNull(store.nextDue())
         }
     }
-    @Test fun autoOnlyImportsNewScreenshotsAndDoesNotReimportDeletedCopy() {
-        image(); Settings(context).update(mapOf("auto" to true))
-        image(); image("camera_${System.nanoTime()}.png", "Pictures/Camera")
-        assertEquals(1, ImageImporter(context).scan()); assertEquals(0, ImageImporter(context).scan())
-        MemoStore(context).use { store -> store.delete(store.items().single()["id"] as Long) }
+    @Test fun autoImportsExistingScreenshotsAndDoesNotReimportDeletedCopy() {
+        val existing = image(); Settings(context).update(mapOf("auto" to true))
+        val fresh = image(); val photo = image("camera_${System.nanoTime()}.png", "Pictures/Camera")
+        ImageImporter(context).scan()
+        MemoStore(context).use { store ->
+            assertTrue("Existing screenshot must import without manual registration", store.seen(existing.toString()))
+            assertTrue(store.seen(fresh.toString()))
+            assertFalse(store.seen(photo.toString()))
+            assertTrue(store.items().all { (it["due"] as Long) > System.currentTimeMillis() })
+            store.items().forEach { store.delete(it["id"] as Long) }
+        }
+        assertEquals(0, ImageImporter(context).scan())
+        Settings(context).update(mapOf("auto" to false))
+        Settings(context).update(mapOf("auto" to true))
         assertEquals(0, ImageImporter(context).scan())
     }
     @Test fun allImagesAndPastImportAreAvailableButOffDoesNotScan() {
@@ -86,6 +95,31 @@ class MvpDeviceTest {
         assertEquals(0, ImageImporter(context).scan())
         Settings(context).update(mapOf("allImages" to true)); assertTrue(ImageImporter(context).scan(true) >= 1)
         MemoStore(context).use { store -> assertTrue(store.items().any { (it["title"] as String).startsWith("photo_") }) }
+    }
+    @Test fun enableAutoFromHomeImportsExistingImageAndSchedulesWithoutManualAdd() {
+        val existing = image()
+        activity = instrumentation.startActivitySync(Intent(context, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+        val device = UiDevice.getInstance(instrumentation)
+        val enable = device.wait(Until.findObject(By.text("自動取り込みをON")), 20000)
+            ?: device.wait(Until.findObject(By.desc("自動取り込みをON")), 10000)
+        assertNotNull("Home must offer automatic import", enable); enable.click()
+        val deadline = System.currentTimeMillis() + 30000
+        while (System.currentTimeMillis() < deadline && !MemoStore(context).use { it.seen(existing.toString()) }) Thread.sleep(200)
+        assertTrue(Settings(context).auto)
+        MemoStore(context).use { store ->
+            assertTrue("Turning ON must immediately import the existing screenshot", store.seen(existing.toString()))
+            assertNotNull("Automatic import must reserve a reminder", store.nextDue())
+        }
+    }
+    @Test fun upgradedAutoOnIncludesOlderPhotosWhenAllImagesSelected() {
+        val photo = image("photo_${System.nanoTime()}.png", "Pictures/Camera")
+        context.getSharedPreferences("settings", Context.MODE_PRIVATE).edit()
+            .putBoolean("auto", true).putLong("enabledAt", System.currentTimeMillis() + 10000)
+            .putLong("baselineId", Long.MAX_VALUE).commit()
+        Settings(context).update(mapOf("allImages" to true))
+        ImageImporter(context).scan()
+        MemoStore(context).use { assertTrue(it.seen(photo.toString())) }
+        assertEquals(0, ImageImporter(context).scan())
     }
     @Test fun settingsRescheduleDefaultsButKeepIndividualBooking() {
         val a = ImageImporter(context).import(image()); val b = ImageImporter(context).import(image())

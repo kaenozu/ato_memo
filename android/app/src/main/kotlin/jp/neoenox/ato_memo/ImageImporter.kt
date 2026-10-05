@@ -89,13 +89,14 @@ class ImageImporter(private val context: Context, private val recognizerFactory:
         MemoStore(context).use { it.cleanup() }
         ReminderScheduler(context).schedule()
         if (!settings.mediaAllowed() || (!past && !settings.auto)) return 0
-        val since = if (past) 0L else settings.enabledAt / 1000
         val columns = mutableListOf(MediaStore.Images.Media._ID, MediaStore.Images.Media.DISPLAY_NAME, MediaStore.Images.Media.DATE_ADDED, MediaStore.Images.Media.BUCKET_DISPLAY_NAME)
         if (Build.VERSION.SDK_INT >= 29) columns.add(MediaStore.Images.Media.RELATIVE_PATH)
-        val selection = "${MediaStore.Images.Media.DATE_ADDED}>=?" + (if (!past) " AND ${MediaStore.Images.Media._ID}>${settings.baselineId}" else "") + if (Build.VERSION.SDK_INT >= 29) " AND ${MediaStore.Images.Media.IS_PENDING}=0" else ""
+        // The seen table, rather than an enable-time cutoff, prevents duplicates.
+        // This also includes existing images for users upgrading with auto already ON.
+        val selection = if (Build.VERSION.SDK_INT >= 29) "${MediaStore.Images.Media.IS_PENDING}=0" else null
         var count = 0
         val failures = mutableListOf<String>()
-        context.contentResolver.query(MediaStore.Images.Media.EXTERNAL_CONTENT_URI, columns.toTypedArray(), selection, arrayOf(since.toString()), "${MediaStore.Images.Media.DATE_ADDED} ASC")?.use { c ->
+        context.contentResolver.query(MediaStore.Images.Media.EXTERNAL_CONTENT_URI, columns.toTypedArray(), selection, null, "${MediaStore.Images.Media.DATE_ADDED} DESC")?.use { c ->
             while (c.moveToNext()) {
                 // A job can outlive the switch: respect disabling auto while it is running.
                 if (!past && !Settings(context).auto) break
