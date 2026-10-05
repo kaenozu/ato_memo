@@ -1,0 +1,55 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  quality:
+    name: Flutter and Android checks
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
+      - uses: actions/setup-java@b6effb05e454b25005698d916606bdc6ffcbf961 # v5
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2 # v2
+        with:
+          flutter-version: '3.44.0'
+          channel: stable
+          cache: true
+      - uses: gradle/actions/setup-gradle@ed408507eac070d1f99cc633dbcf757c94c7933a # v4
+      - name: Install Flutter dependencies
+        run: flutter pub get --enforce-lockfile
+      - name: Analyze Flutter
+        run: flutter analyze
+      - name: Test Flutter
+        run: flutter test
+      - name: Build release APK without private signing credentials
+        run: flutter build apk --release --split-per-abi
+      - name: Test Android
+        working-directory: android
+        run: ./gradlew :app:testDebugUnitTest --no-daemon -Dorg.gradle.jvmargs='-Xmx4G -XX:MaxMetaspaceSize=1G'
+      - name: Save Android test reports
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: android-unit-test-reports
+          path: |
+            build/app/reports/tests/testDebugUnitTest/
+            build/app/test-results/testDebugUnitTest/
+          if-no-files-found: ignore
+          retention-days: 7
