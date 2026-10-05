@@ -42,3 +42,5 @@ adb shell am instrument -w -e class jp.neoenox.ato_memo.MvpDeviceTest jp.neoenox
 - Flutter 10テスト、Kotlin 6テスト、flutter analyze が成功。
 - 過去画像を除外していた開始日時/MediaStore ID条件を撤廃。ONと対象変更時に取り込みを開始。スクショだけ/全画像の設定は維持。
 - 実端末の省電力状態によるバックグラウンド遅延は別途実端末での確認が必要。
+- 正式署名のrelease APKでも、ホームのON操作だけで端末に残っていた既存スクショ2枚を取り込み、翌日20時のまとめ通知を予約した実画面を確認。releaseのINTERNET権限はなし。
+- AAB 0.1.1+2署名の検証成功。アップロード証明書SHA-256は初回と一致。
