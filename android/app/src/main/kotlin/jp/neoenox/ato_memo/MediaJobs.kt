@@ -9,7 +9,12 @@ import android.content.Context
 import android.provider.MediaStore
 import java.util.concurrent.Executors
 
-object NativeWork { val executor = Executors.newSingleThreadExecutor() }
+object NativeWork {
+    /** UI応答用: snapshot/schedule等の軽量処理 (#7)。 */
+    val ui = Executors.newSingleThreadExecutor()
+    /** 重処理用: scan/import/OCR (#7)。snapshotを塞がない。 */
+    val heavy = Executors.newFixedThreadPool(2)
+}
 
 object MediaJobs {
     const val CHANGES = 71
@@ -36,7 +41,7 @@ object MediaJobs {
 
 class MediaImportJob : JobService() {
     override fun onStartJob(params: JobParameters): Boolean {
-        NativeWork.executor.execute {
+        NativeWork.heavy.execute {
             try { ImageImporter(applicationContext).scan() }
             catch (_: Exception) { Settings(applicationContext).lastError = "自動取り込みに失敗しました。画像のアクセス許可を確認してください。" }
             finally {

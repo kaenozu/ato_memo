@@ -50,14 +50,14 @@ class ReminderScheduler(private val context: Context) {
 class ReminderReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
         val pending = goAsync()
-        NativeWork.executor.execute { try { ReminderScheduler(context).deliver() } finally { pending.finish() } }
+        NativeWork.ui.execute { try { ReminderScheduler(context).deliver() } finally { pending.finish() } }
     }
 }
 
 class RestoreReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
         val pending = goAsync()
-        NativeWork.executor.execute {
+        NativeWork.ui.execute {
             try { ReminderScheduler(context).schedule(); MediaJobs.schedule(context) }
             finally { pending.finish() }
         }

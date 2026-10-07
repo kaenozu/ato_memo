@@ -26,8 +26,18 @@ class Settings(private val context: Context) {
     fun notificationsAllowed() = context.getSystemService(NotificationManager::class.java).areNotificationsEnabled()
     fun exactAllowed() = Build.VERSION.SDK_INT < 31 || context.getSystemService(AlarmManager::class.java).canScheduleExactAlarms()
     fun defaultDue(now: LocalDateTime = LocalDateTime.now()): Long = ReminderTimes.defaultTime(now, hour, minute, delayDays, weekly, weekday).atZone(ZoneId.systemDefault()).toInstant().toEpochMilli()
+    fun appVersion(): String = try {
+        val info = if (Build.VERSION.SDK_INT >= 33) {
+            context.packageManager.getPackageInfo(context.packageName, android.content.pm.PackageInfoFlags.of(0))
+        } else {
+            @Suppress("DEPRECATION")
+            context.packageManager.getPackageInfo(context.packageName, 0)
+        }
+        info.versionName ?: ""
+    } catch (_: Exception) { "" }
     fun map(): Map<String, Any> = mapOf("auto" to auto, "allImages" to allImages, "notify" to notify, "hour" to hour, "minute" to minute,
-        "delayDays" to delayDays, "weekly" to weekly, "weekday" to weekday, "mediaAllowed" to mediaAllowed(), "notificationsAllowed" to notificationsAllowed(), "exactAllowed" to exactAllowed(), "lastError" to lastError)
+        "delayDays" to delayDays, "weekly" to weekly, "weekday" to weekday, "mediaAllowed" to mediaAllowed(), "notificationsAllowed" to notificationsAllowed(), "exactAllowed" to exactAllowed(), "lastError" to lastError,
+        "version" to appVersion())
     fun update(values: Map<*, *>) {
         val editor = prefs.edit()
         for (key in listOf("auto", "allImages", "notify", "weekly")) (values[key] as? Boolean)?.let { editor.putBoolean(key, it) }

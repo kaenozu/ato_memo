@@ -2,6 +2,7 @@ package jp.neoenox.ato_memo
 
 import android.Manifest
 import android.content.Intent
+import android.content.pm.PackageManager
 import android.net.Uri
 import android.os.Build
 import android.provider.Settings as AndroidSettings
@@ -30,7 +31,7 @@ class MainActivity : FlutterActivity() {
                         snapshot
                     }
                 }
-                "saveSettings" -> work(result) {
+                "saveSettings" -> workHeavy(result) {
                     val old = Settings(this).map()
                     val values = call.arguments as Map<*, *>
                     Settings(this).update(values)
@@ -45,8 +46,8 @@ class MainActivity : FlutterActivity() {
                 }
                 "complete" -> work(result) { MemoStore(this).use { it.complete((call.arguments as Number).toLong()) }; ReminderScheduler(this).clearNotification(); ReminderScheduler(this).schedule(); null }
                 "delete" -> work(result) { MemoStore(this).use { it.delete((call.arguments as Number).toLong()) }; ReminderScheduler(this).clearNotification(); ReminderScheduler(this).schedule(); null }
-                "retryOcr" -> work(result) { ImageImporter(this).retryOcr((call.arguments as Number).toLong()); null }
-                "scan" -> work(result) { ImageImporter(this).scan(call.arguments == true) }
+                "retryOcr" -> workHeavy(result) { ImageImporter(this).retryOcr((call.arguments as Number).toLong()); null }
+                "scan" -> workHeavy(result) { ImageImporter(this).scan(call.arguments == true) }
                 "requestMedia" -> {
                     if (permissionResult != null) result.error("busy", "権限の確認中です", null)
                     else {
@@ -78,7 +79,11 @@ class MainActivity : FlutterActivity() {
         handleIntent(intent)
     }
     private fun work(result: MethodChannel.Result, action: () -> Any?) {
-        NativeWork.executor.execute { try { val value = action(); runOnUiThread { result.success(value) } }
+        NativeWork.ui.execute { try { val value = action(); runOnUiThread { result.success(value) } }
+            catch(e: Exception) { runOnUiThread { result.error("native", e.message ?: "処理に失敗しました", null) } } }
+    }
+    private fun workHeavy(result: MethodChannel.Result, action: () -> Any?) {
+        NativeWork.heavy.execute { try { val value = action(); runOnUiThread { result.success(value) } }
             catch(e: Exception) { runOnUiThread { result.error("native", e.message ?: "処理に失敗しました", null) } } }
     }
     private fun changed() { if (::channel.isInitialized) runOnUiThread { channel.invokeMethod("changed", null) } }
@@ -96,7 +101,7 @@ class MainActivity : FlutterActivity() {
     }
     private fun importUris(uris: List<Uri>, origin: String, result: MethodChannel.Result? = null) {
         importing = true; changed()
-        NativeWork.executor.execute {
+        NativeWork.heavy.execute {
             val ids = mutableListOf<Long>(); var failures = 0
             for (uri in uris) try { val id = ImageImporter(this).import(uri, origin); if (id > 0) ids.add(id) } catch (_: Exception) { failures++ }
             ReminderScheduler(this).schedule()
@@ -110,7 +115,23 @@ class MainActivity : FlutterActivity() {
     }
     override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<out String>, grantResults: IntArray) {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults)
-        if (requestCode == 41 || requestCode == 42) { permissionResult?.success(null); permissionResult = null; ReminderScheduler(this).schedule(); changed() }
+        if (requestCode != 41 && requestCode != 42) return
+        val result = permissionResult; permissionResult = null
+        val granted = grantResults.isNotEmpty() && grantResults.all { it == PackageManager.PERMISSION_GRANTED }
+        if (granted) {
+            result?.success(null)
+        } else {
+            val partial = requestCode == 41 && Build.VERSION.SDK_INT >= 34 &&
+                permissions.zip(grantResults.toList()).any { (name, grant) ->
+                    name == Manifest.permission.READ_MEDIA_VISUAL_USER_SELECTED && grant == PackageManager.PERMISSION_GRANTED
+                }
+            when {
+                partial -> result?.error("partial", "一部のみ許可されています。自動取り込みには全画像へのアクセスが必要です。手動の画像追加は使えます。", null)
+                requestCode == 41 -> result?.error("denied", "画像へのアクセスが許可されませんでした。手動の画像追加は使えます。", null)
+                else -> result?.error("denied", "通知が許可されませんでした。設定から変更できます。", null)
+            }
+        }
+        ReminderScheduler(this).schedule(); changed()
     }
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
         super.onActivityResult(requestCode, resultCode, data)
@@ -123,6 +144,6 @@ class MainActivity : FlutterActivity() {
     }
     override fun onResume() {
         super.onResume()
-        NativeWork.executor.execute { try { ImageImporter(this).scan(); ReminderScheduler(this).schedule(); MediaJobs.schedule(this) } catch (_: Exception) { } finally { changed() } }
+        NativeWork.heavy.execute { try { ImageImporter(this).scan(); ReminderScheduler(this).schedule(); MediaJobs.schedule(this) } catch (_: Exception) { } finally { changed() } }
     }
 }

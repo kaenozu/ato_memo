@@ -32,6 +32,8 @@ class SettingsPage extends StatelessWidget {
       );
       if (yes != true) return;
       await controller.action('requestMedia');
+      // 拒否・一部許可時は action が失敗する。最新状態で判定する (#10)。
+      await controller.refresh();
     }
     if (controller.settings['mediaAllowed'] == true) {
       await controller.save({'auto': true});
@@ -125,6 +127,7 @@ class SettingsPage extends StatelessWidget {
                   : () async {
                       if (s['mediaAllowed'] != true) {
                         await c.action('requestMedia');
+                        await c.refresh();
                       }
                       if (!context.mounted ||
                           c.settings['mediaAllowed'] != true) {
@@ -287,9 +290,11 @@ class SettingsPage extends StatelessWidget {
                 'アプリ内にコピーを保存します。完了から30日後にコピーだけを削除します。アプリを削除するとコピーと予約も消えます。',
               ),
             ),
-            const ListTile(
-              title: Text('あとメモ 0.1.0'),
-              subtitle: Text('スクショを、忘れる前にもう一度。'),
+            ListTile(
+              title: Text(
+                'あとメモ ${c.version.isNotEmpty ? c.version : '0.1.1'}',
+              ),
+              subtitle: const Text('スクショを、忘れる前にもう一度。'),
             ),
             if (c.busy) const LinearProgressIndicator(),
           ],
